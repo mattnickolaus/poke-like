@@ -1,10 +1,14 @@
 extends CharacterBody2D
 
+signal player_moving_signal
+signal player_stopped_signal
+
 @export var walk_speed = 4.0
 const TILESIZE = 16
 
 @onready var anim_tree = $AnimationTree
 @onready var anim_state = anim_tree.get("parameters/playback")
+@onready var ray = $RayCast2D
 
 enum PlayerState { IDLE, TURNING, WALKING }
 enum FacingDirection { LEFT, RIGHT, UP, DOWN }
@@ -76,10 +80,21 @@ func finished_turning():
 	
 	
 func move(delta): 
-	percent_moved_to_next_tile += walk_speed * delta
-	if percent_moved_to_next_tile >= 1.0:
-		position = initial_position + (TILESIZE * input_direction)
-		percent_moved_to_next_tile = 0.0
+	var desired_step: Vector2 = input_direction * TILESIZE / 2
+	ray.target_position = desired_step
+	ray.force_raycast_update()
+	if !ray.is_colliding():
+		if percent_moved_to_next_tile == 0:
+			emit_signal("player_moving_signal")
+		percent_moved_to_next_tile += walk_speed * delta
+		if percent_moved_to_next_tile >= 1.0:
+			position = initial_position + (TILESIZE * input_direction)
+			percent_moved_to_next_tile = 0.0
+			is_moving = false
+			emit_signal("player_stopped_signal")
+		else: 
+			position = initial_position + (TILESIZE * input_direction * percent_moved_to_next_tile)
+	else:
 		is_moving = false
-	else: 
-		position = initial_position + (TILESIZE * input_direction * percent_moved_to_next_tile)
+		percent_moved_to_next_tile = 0.0
+	
